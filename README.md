@@ -51,6 +51,7 @@ Repo: `{ id, name, description, url, private }`
 ## Notes
 
 - Sessions and rate limits are in-memory (lost on restart, not shared across processes)
+- Skipped encrypting the access token because it is only kept in server memory and is never persisted. Anyone with access to the server process could potentially access both the token and the encryption key, so encryption would add complexity without much additional protection. If tokens were persisted in a store such as Redis or a database, encrypting them at rest would be a good additional security measure.
 - `COOKIE_SECURE=false` for local HTTP; use `true` behind HTTPS
 - Missing/weak config fails at boot
 - Tests: `npm test` (fake GitHub client, no network)
