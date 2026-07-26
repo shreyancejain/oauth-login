@@ -22,21 +22,26 @@ export type SessionStoreOptions = {
   createId?: () => string;
 };
 
+function isExpired(
+  record: SessionRecord,
+  current: number,
+  absoluteTtlMs: number,
+  idleTtlMs: number,
+): boolean {
+  if (record.createdAt + absoluteTtlMs <= current) {
+    return true;
+  }
+  if (record.lastSeenAt + idleTtlMs <= current) {
+    return true;
+  }
+  return false;
+}
+
 export function createSessionStore(options: SessionStoreOptions): SessionStore {
   const store = new Map<string, SessionRecord>();
   const now = options.now ?? (() => Date.now());
   const createId =
     options.createId ?? (() => randomBytes(32).toString("base64url"));
-
-  function isExpired(record: SessionRecord, current: number): boolean {
-    if (record.createdAt + options.absoluteTtlMs <= current) {
-      return true;
-    }
-    if (record.lastSeenAt + options.idleTtlMs <= current) {
-      return true;
-    }
-    return false;
-  }
 
   return {
     create(record) {
@@ -54,7 +59,14 @@ export function createSessionStore(options: SessionStoreOptions): SessionStore {
       if (!record) {
         return undefined;
       }
-      if (isExpired(record, now())) {
+      if (
+        isExpired(
+          record,
+          now(),
+          options.absoluteTtlMs,
+          options.idleTtlMs,
+        )
+      ) {
         store.delete(sessionId);
         return undefined;
       }

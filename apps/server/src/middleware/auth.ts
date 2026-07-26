@@ -1,11 +1,21 @@
 import type { NextFunction, Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 import type { SessionRecord, SessionStore } from "../session/session-store.js";
+import { clearCookie } from "../utils/cookies.js";
 
 export type AuthedRequest = Request & {
   sessionId: string;
   session: SessionRecord;
 };
+
+function isAllowedOrigin(origin: string, config: AppConfig): boolean {
+  const allowed = new Set([
+    config.frontendUrl,
+    `http://localhost:${config.port}`,
+    `http://127.0.0.1:${config.port}`,
+  ]);
+  return allowed.has(origin);
+}
 
 export function createRequireSession(options: {
   sessionStore: SessionStore;
@@ -22,13 +32,7 @@ export function createRequireSession(options: {
 
     const session = options.sessionStore.touch(sessionId);
     if (!session) {
-      res.clearCookie("sid", {
-        path: "/",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: options.cookieSecure,
-        signed: true,
-      });
+      clearCookie(res, "sid", { secure: options.cookieSecure });
       res.status(401).json({ error: "unauthenticated" });
       return;
     }
@@ -43,14 +47,8 @@ export function createRequireSameOrigin(options: {
   config: AppConfig;
 }): (req: Request, res: Response, next: NextFunction) => void {
   return (req, res, next) => {
-    const allowed = new Set([
-      options.config.frontendUrl,
-      `http://localhost:${options.config.port}`,
-      `http://127.0.0.1:${options.config.port}`,
-    ]);
-
     const origin = req.get("origin");
-    if (origin && allowed.has(origin)) {
+    if (origin && isAllowedOrigin(origin, options.config)) {
       next();
       return;
     }
@@ -59,7 +57,7 @@ export function createRequireSameOrigin(options: {
     if (referer) {
       try {
         const refererOrigin = new URL(referer).origin;
-        if (allowed.has(refererOrigin)) {
+        if (isAllowedOrigin(refererOrigin, options.config)) {
           next();
           return;
         }

@@ -5,6 +5,10 @@ export type RateLimiter = {
   reset(): void;
 };
 
+function clientKey(req: Request): string {
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
 export function createRateLimiter(options: {
   windowMs: number;
   max: number;
@@ -12,10 +16,6 @@ export function createRateLimiter(options: {
 }): RateLimiter {
   const hits = new Map<string, { count: number; resetAt: number }>();
   const now = options.now ?? (() => Date.now());
-
-  function clientKey(req: Request): string {
-    return req.ip || req.socket.remoteAddress || "unknown";
-  }
 
   return {
     reset() {

@@ -10,27 +10,30 @@ export type PendingOAuthStore = {
   size(): number;
 };
 
+function purgeExpired(
+  store: Map<string, PendingOAuth>,
+  now: () => number,
+): void {
+  const current = now();
+  for (const [key, value] of store) {
+    if (value.expiresAt <= current) {
+      store.delete(key);
+    }
+  }
+}
+
 export function createPendingOAuthStore(
   now: () => number = () => Date.now(),
 ): PendingOAuthStore {
   const store = new Map<string, PendingOAuth>();
 
-  function purgeExpired(): void {
-    const current = now();
-    for (const [key, value] of store) {
-      if (value.expiresAt <= current) {
-        store.delete(key);
-      }
-    }
-  }
-
   return {
     set(state, value) {
-      purgeExpired();
+      purgeExpired(store, now);
       store.set(state, value);
     },
     get(state) {
-      purgeExpired();
+      purgeExpired(store, now);
       const value = store.get(state);
       if (!value) {
         return undefined;
@@ -50,7 +53,7 @@ export function createPendingOAuthStore(
       return value;
     },
     size() {
-      purgeExpired();
+      purgeExpired(store, now);
       return store.size;
     },
   };
